@@ -1,6 +1,6 @@
 ---
-title: "Project Proposal Template"
-authors: Trieste Cerny and Jackson Justice
+title: "Stat 330 Project Proposal - Jackson and Trieste"
+authors: Jackson Justice and Trieste Cerny
 format: 
   pdf:
     embed-resources: true 
@@ -13,7 +13,6 @@ h1.title {
 }
 </style>
 
-testing git so i can commit it to the correct repo
 ```{r setup, include=FALSE}
 # load all necessary packages here
 ```
@@ -22,9 +21,7 @@ DELETE THIS PARAGRAPH: You should replace all text in this template with the req
 
 # 1 Group Members and Confirmation That You Have Read Final Project Instructions
 
-DELETE THIS: List the names of all group members in this section. (Don't forget to delete this part! The only content in this section should be a sentence like "The members of our group are...")
-
-DELETE THIS: Confirm that each member of you group has read the **full** 5-page project instructions document Stat_330_Final_Project_Instructions_W26.pdf
+The members in our group are Jackson Justice and Trieste Cerny. We both read the full 5 page project instructions.
 
 # 2 Data Set
 
