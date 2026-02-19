@@ -1,11 +1,10 @@
 ---
 title: "Project Proposal Template"
-authors: YOUR NAME and YOUR NAME and YOUR NAME
+authors: Trieste Cerny and Jackson Justice
 format: 
   pdf:
     embed-resources: true 
 ---
-
 
 <style type="text/css">
 h1.title {
@@ -14,7 +13,7 @@ h1.title {
 }
 </style>
 
-
+testing git so i can commit it to the correct repo
 ```{r setup, include=FALSE}
 # load all necessary packages here
 ```
