@@ -1,0 +1,308 @@
+---
+title: "Stat 330 Final Project"
+format: html
+editor: visual
+---
+
+## Stat 330 Final Project
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+```{r}
+#Read your data into R. 
+proj_data <- read.csv("college-scorecard-institution.csv")
+```
+
+**Note:** Loads the College Scorecard dataset. All analysis below is based on this dataset.
+
+```{r}
+# Variables to clean and convert to numeric
+vars_to_clean <- c(
+  "NPT4_PUB", "NPT4_PRIV", "MD_EARN_WNE_P10",
+  "PCTPELL", "CONTROL", "SATVRMID", "SATMTMID",
+  "ADM_RATE", "UGDS"
+)
+
+proj_data[vars_to_clean] <- lapply(proj_data[vars_to_clean], function(x) {
+  x[x == "NULL"] <- NA
+  as.numeric(x)
+})
+
+# Create one price variable for public and private schools
+proj_data$NET_PRICE <- ifelse(!is.na(proj_data$NPT4_PUB),
+                              proj_data$NPT4_PUB,
+                              proj_data$NPT4_PRIV)
+
+# Student quality
+proj_data$SAT_AVG <- (proj_data$SATVRMID + proj_data$SATMTMID) / 2
+
+# Log earnings
+proj_data$LOG_EARN <- log(proj_data$MD_EARN_WNE_P10)
+
+# fix negative net price
+proj_data$NET_PRICE[proj_data$NET_PRICE < 0] <- NA
+
+summary(proj_data[, c("LOG_EARN", "NET_PRICE", "PCTPELL", "SAT_AVG", "ADM_RATE", "UGDS", "CONTROL")])
+
+nrow(na.omit(proj_data[, c("LOG_EARN", "NET_PRICE", "PCTPELL", "SAT_AVG", "ADM_RATE", "UGDS", "CONTROL")]))
+```
+
+**Note:** Cleans key variables by converting "NULL" values to NA and then converting them to numeric. Also creates: - `NET_PRICE` (combined public/private cost) - `SAT_AVG` (proxy for student quality) - `LOG_EARN` (log-transformed earnings) Negative net price values are removed since they are not meaningful.
+
+The summary output checks variable ranges, and the row count shows how many complete observations remain for the full model.
+
+```{r}
+nrow(na.omit(proj_data[, c("LOG_EARN", "NET_PRICE", "PCTPELL")]))
+nrow(na.omit(proj_data[, c("LOG_EARN", "NET_PRICE", "PCTPELL", "SAT_AVG")]))
+```
+
+**Note:** Compares how many observations are available under simpler vs more complex models. Adding variables like SAT reduces sample size due to missing data.
+
+```{r}
+# EDA 1
+ggplot(proj_data, aes(x = MD_EARN_WNE_P10)) +
+  geom_histogram(bins = 50, fill = "steelblue", color = "white", na.rm = TRUE) +
+  labs(x = "Median Earnings (USD)", y = "Count") +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(labels = scales::dollar)
+```
+
+**Note:** Shows the distribution of median earnings. The right-skewed shape motivates using a log transformation in later models.
+
+```{r}
+# EDA 2
+ggplot(proj_data, aes(x = NET_PRICE, y = MD_EARN_WNE_P10)) +
+  geom_point(alpha = 0.4, na.rm = TRUE) +
+  labs(title = "Price vs Median Earnings",
+       x = "Average Tuition Price",
+       y = "Median Earnings") +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(labels = scales::comma)
+```
+
+**Note:** Displays the raw relationship between cost and earnings before controlling for other variables.
+
+```{r}
+ggplot(proj_data, aes(x = PCTPELL, y = MD_EARN_WNE_P10)) +
+  geom_point(alpha = 0.4, na.rm = TRUE) +
+  labs(title = "Percent Pell Grant Recipients vs Median Earnings",
+       x = "Percent of Students Receiving Pell Grants",
+       y = "Median Earnings") +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(labels = scales::comma)
+```
+
+**Note:** Shows the relationship between socioeconomic composition (Pell share) and earnings.
+
+```{r}
+lm.fit <- lm(MD_EARN_WNE_P10 ~ NET_PRICE, data = proj_data)
+summary(lm.fit)
+```
+
+**Note:** Baseline model from the proposal using only net price to predict earnings. Used as a reference point for later models.
+
+```{r}
+# Residuals vs fitted
+plot(lm.fit$fitted.values,
+     resid(lm.fit),
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+abline(h = 0, col = "red")
+
+# Q-Q plot
+qqnorm(resid(lm.fit),
+       main = "Normal Q-Q Plot of Residuals")
+qqline(resid(lm.fit), col = "red")
+```
+
+**Note:** Diagnostic plots for the baseline model. Suggests potential issues (non-normality/skewness), motivating use of log earnings.
+
+```{r}
+plot(proj_data$NET_PRICE, proj_data$LOG_EARN,
+     xlab = "Average Net Price ($)",
+     ylab = "log(Median Earnings)",
+     pch = 16, cex = 0.5,
+     xaxt = "n",
+     col = c("steelblue", "darkorange", "forestgreen")[proj_data$CONTROL])
+axis(1, at = seq(0, 100000, by = 25000),
+     labels = c("$0", "$25k", "$50k", "$75k", "$100k"))
+legend("bottomright",
+       legend = c("Public", "Private NP", "Private FP"),
+       col = c("steelblue", "darkorange", "forestgreen"),
+       pch = 16, cex = 0.7)
+```
+
+**Note:** Examines the relationship on the log scale and introduces institution type through color coding.
+
+```{r}
+plot(proj_data$PCTPELL, proj_data$LOG_EARN,
+     xlab = "Proportion Receiving Pell Grants",
+     ylab = "log(Median Earnings)",
+     main = "Pell Grant % vs. log(Earnings)",
+     pch = 16, cex = 0.5,
+     col = c("steelblue", "darkorange", "forestgreen")[proj_data$CONTROL])
+
+legend("topright",
+       legend = c("Public", "Private NP", "Private FP"),
+       col = c("steelblue", "darkorange", "forestgreen"),
+       pch = 16, cex = 0.7)
+```
+
+**Note:** Shows how the Pell relationship behaves after log transformation and across institution types.
+
+## Model Development and Comparison
+
+```{r}
+mod1 <- lm(LOG_EARN ~ NET_PRICE + PCTPELL, data = proj_data)
+summary(mod1)
+
+mod2 <- lm(LOG_EARN ~ NET_PRICE + PCTPELL + factor(CONTROL), data = proj_data)
+summary(mod2)
+
+mod3 <- lm(LOG_EARN ~ NET_PRICE * factor(CONTROL) + PCTPELL, data = proj_data)
+summary(mod3)
+
+AIC(mod1, mod2, mod3)
+
+
+# Model comparison
+summary(mod1)$adj.r.squared
+summary(mod2)$adj.r.squared
+summary(mod3)$adj.r.squared
+```
+
+**Note:** These models progressively add complexity: - mod1: basic model (cost + Pell) - mod2: adds institution type - mod3: adds interaction between cost and institution type
+
+Model fit improves as complexity increases, suggesting institutional differences matter.
+
+```{r}
+mod4 <- lm(LOG_EARN ~ NET_PRICE * factor(CONTROL) +
+                         PCTPELL + SAT_AVG + ADM_RATE + UGDS,
+           data = proj_data)
+
+summary(mod4)
+
+proj_data$LOG_PRICE <- log(proj_data$NET_PRICE)
+
+mod5 <- lm(LOG_EARN ~ LOG_PRICE * factor(CONTROL) +
+                         PCTPELL + SAT_AVG + ADM_RATE + UGDS,
+           data = proj_data)
+
+summary(mod5)
+
+AIC(mod4, mod5)
+```
+
+**Note:** These models add additional controls such as SAT (student quality), admission rate, and enrollment. These help isolate whether cost still matters after accounting for student characteristics.
+
+mod5 also tests a log transformation of price.
+
+```{r}
+# final model
+mod_final <- lm(LOG_EARN ~ NET_PRICE +
+                              PCTPELL +
+                              SAT_AVG +
+                              UGDS +
+                              factor(CONTROL),
+                data = proj_data)
+
+summary(mod_final)
+AIC(mod_final)
+```
+
+**Note:** This is the final selected model. It balances interpretability and performance by keeping key predictors (cost, Pell share, SAT, size, and institution type) while removing unnecessary complexity.
+
+```{r}
+nrow(na.omit(proj_data[, c("LOG_EARN", "NET_PRICE", "PCTPELL")]))
+nrow(na.omit(proj_data[, c("LOG_EARN", "NET_PRICE", "PCTPELL", "SAT_AVG", "ADM_RATE", "UGDS", "CONTROL")]))
+```
+
+```{r}
+summary(proj_data[, c("MD_EARN_WNE_P10", "NET_PRICE", "PCTPELL", "UGDS", "SAT_AVG")])
+```
+
+**Note:** Using this for the Data Description part.
+
+```{r}
+library(caret)
+
+# set seed for reproducibility
+set.seed(330)
+
+# remove rows with missing values for final model variables
+cv_data <- na.omit(proj_data[, c("LOG_EARN", "NET_PRICE", "PCTPELL", 
+                                  "SAT_AVG", "UGDS", "CONTROL")])
+cv_data$CONTROL <- factor(cv_data$CONTROL)
+
+# 10-fold CV setup
+ctrl <- trainControl(method = "cv", number = 10)
+
+# mod1: basic model
+cv_mod1 <- train(LOG_EARN ~ NET_PRICE + PCTPELL,
+                 data = cv_data,
+                 method = "lm",
+                 trControl = ctrl)
+
+# mod2: adds institution type
+cv_mod2 <- train(LOG_EARN ~ NET_PRICE + PCTPELL + CONTROL,
+                 data = cv_data,
+                 method = "lm",
+                 trControl = ctrl)
+
+# final model: full
+cv_final <- train(LOG_EARN ~ NET_PRICE + PCTPELL + SAT_AVG + UGDS + CONTROL,
+                  data = cv_data,
+                  method = "lm",
+                  trControl = ctrl)
+
+# compare results
+results <- resamples(list(Basic = cv_mod1,
+                          WithType = cv_mod2,
+                          Final = cv_final))
+summary(results)
+```
+
+```{r}
+# Figure 1 - earnings histogram
+pdf("figure1_earnings.pdf", width = 6, height = 4)
+ggplot(proj_data, aes(x = MD_EARN_WNE_P10)) +
+  geom_histogram(bins = 50, fill = "steelblue", color = "white", na.rm = TRUE) +
+  labs(x = "Median Earnings (USD)", y = "Count") +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(labels = scales::dollar)
+dev.off()
+
+# Figure 2 - net price vs log earnings by institution type
+pdf("figure2_netprice.pdf", width = 6, height = 4)
+plot(proj_data$NET_PRICE, proj_data$LOG_EARN,
+     xlab = "Average Net Price ($)",
+     ylab = "log(Median Earnings)",
+     pch = 16, cex = 0.5,
+     xaxt = "n",
+     col = c("steelblue", "darkorange", "forestgreen")[proj_data$CONTROL])
+axis(1, at = seq(0, 100000, by = 25000),
+     labels = c("$0", "$25k", "$50k", "$75k", "$100k"))
+legend("bottomright",
+       legend = c("Public", "Private NP", "Private FP"),
+       col = c("steelblue", "darkorange", "forestgreen"),
+       pch = 16, cex = 0.7)
+dev.off()
+
+# Figure 3
+pdf("figure3_pellgrant.pdf", width = 6, height = 4)
+plot(proj_data$PCTPELL, proj_data$LOG_EARN,
+     xlab = "Proportion Receiving Pell Grants",
+     ylab = "log(Median Earnings)",
+     main = "Pell Grant % vs. log(Earnings)",
+     pch = 16, cex = 0.5,
+     col = c("steelblue", "darkorange", "forestgreen")[proj_data$CONTROL])
+
+legend("topright",
+       legend = c("Public", "Private NP", "Private FP"),
+       col = c("steelblue", "darkorange", "forestgreen"),
+       pch = 16, cex = 0.7)
+dev.off()
+```
