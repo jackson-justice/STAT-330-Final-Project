@@ -99,9 +99,9 @@ Overall, a lot of what looks like a “tuition effect” is really explained by 
 
 ## Files
 
-* `Stat-330-Final-Project.qmd` – full analysis
-* `stat330-college-earnings-proposal.qmd` – initial proposal
-* PDF outputs and figures
+* `analysis.qmd` – full analysis
+* `figures` - PDF figures
+* `final_report.pdf` - final project report
 
 ## Notes
 
